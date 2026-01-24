@@ -1,70 +1,83 @@
+"""Simple Gradio UI for RAG demo.
+
+This module creates a three-column view to show responses from
+multiple model providers and a bottom input bar. CSS is read
+from `assets/styles.css` so styling is separated from code.
+"""
+
+from __future__ import annotations
+
+from typing import Tuple
+import pathlib
+import logging
 import gradio as gr
+
 from rag_pipeline import rag
-from config import settings
 
 
-def process_query(query_text: str):
+def process_query(query_text: str) -> Tuple[str, str, str, str]:
+    """Process a text query and return the input plus three model responses.
+
+    Returns empty strings if the input is blank.
+    """
     if not query_text or query_text.strip() == "":
-        return "", "", "", ""
+        return "", "", ""
 
     return rag(query_text)
 
 
-def transcribe_and_query(audio):
-    # Placeholder STT: in production integrate a real STT provider
+def transcribe_and_query(audio_path) -> Tuple[str, str, str, str]:
+    """Placeholder STT integration.
+
+    In production replace with an actual STT call that returns text.
+    """
+    # For now simulate an STT transcription
     user_text = "What's the weather like today in London?"
     return rag(user_text)
 
 
-# UI styling
-custom_css = """
-.model-column { 
-    border-right: 1px solid #e0e0e0; 
-    padding-right: 20px; 
-    min-height: 400px; 
-}
-.model-column:last-child { 
-    border-right: none; 
-}
-.response-bubble { 
-    border-radius: 15px; 
-    padding: 15px; 
-    margin-bottom: 10px; 
-}
-#bottom-bar { 
-    position: fixed; 
-    bottom: 0; 
-    left: 0; 
-    width: 100%; 
-    background: white; 
-    padding: 20px; 
-    z-index: 100; 
-    border-top: 1px solid #ddd; 
-}
-"""
+def _read_css() -> str:
+    """Read CSS from the assets folder. Return empty string if missing."""
+    css_path = pathlib.Path(__file__).parent / "assets" / "styles.css"
+    try:
+        return css_path.read_text(encoding="utf-8")
+    except Exception:
+        return ""
+
+
+css = _read_css()
+
+# Configure basic logging for the application. Logs go to stderr by default.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
 
 
 with gr.Blocks() as demo:
     with gr.Row():
         with gr.Column(elem_classes="model-column"):
             gr.Markdown("### MODEL A")
-            out_a = gr.Textbox(label=None, placeholder="Response A...", interactive=False, container=False)
-            btn_a = gr.Button("🔊 Play Audio", size="sm")
+            out_a = gr.Textbox(label=None, placeholder="Response A...",
+                               interactive=False, container=False)
+            _ = gr.Button("🔊 Play Audio", size="sm")
 
         with gr.Column(elem_classes="model-column"):
             gr.Markdown("### MODEL B")
-            out_b = gr.Textbox(label=None, placeholder="Response B...", interactive=False, container=False)
-            btn_b = gr.Button("🔊 Play Audio", size="sm")
+            out_b = gr.Textbox(label=None, placeholder="Response B...",
+                               interactive=False, container=False)
+            _ = gr.Button("🔊 Play Audio", size="sm")
 
         with gr.Column(elem_classes="model-column"):
             gr.Markdown("### MODEL C")
-            out_c = gr.Textbox(label=None, placeholder="Response C...", interactive=False, container=False)
-            btn_c = gr.Button("🔊 Play Audio", size="sm")
+            out_c = gr.Textbox(label=None, placeholder="Response C...",
+                               interactive=False, container=False)
+            _ = gr.Button("🔊 Play Audio", size="sm")
 
     gr.HTML("<div style='height: 150px;'></div>")
 
     with gr.Row(elem_id="bottom-bar"):
-        with gr.Column(scale=8):
+        with gr.Column(scale=4):
             user_input = gr.Textbox(
                 show_label=False,
                 placeholder="What's the weather like today in London?",
@@ -81,10 +94,16 @@ with gr.Blocks() as demo:
                 show_label=False,
             )
 
-    submit_btn.click(process_query, inputs=[user_input], outputs=[user_input, out_a, out_b, out_c])
+    # Bind both the button click and pressing Enter in the textbox
+    user_input.submit(process_query, inputs=[user_input],
+                      outputs=[out_a, out_b, out_c])
+    submit_btn.click(process_query, inputs=[user_input],
+                     outputs=[user_input, out_a, out_b, out_c])
 
-    voice_btn.stop_recording(transcribe_and_query, inputs=[voice_btn], outputs=[user_input, out_a, out_b, out_c])
+    voice_btn.stop_recording(transcribe_and_query,
+                             inputs=[voice_btn],
+                             outputs=[out_a, out_b, out_c])
 
 
 if __name__ == "__main__":
-    demo.launch(css=custom_css)
+    demo.launch(css=css)
