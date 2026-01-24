@@ -1,36 +1,106 @@
-from typing import Tuple
-from config import settings
+"""Asynchronous RAG Pipeline.
+
+Orchestrates the retrieval and multi-model generation flow. 
+Uses asyncio to call LLMs in parallel and stream results back to the UI.
+"""
+
+import asyncio
+import logging
+from typing import AsyncGenerator, List, Dict, Tuple
+
 from services.embedding_provider import CohereEmbeddingProvider
 from services.search_provider import hybrid_search
 from services.model_providers import call_deepseek, call_kimi, call_gemini
 
+logger = logging.getLogger(__name__)
 
-def rag(query: str) -> Tuple[str, str, str, str]:
-    """Run a simple RAG flow: embed, hybrid search, then call models.
-
-    The function is defensive: individual components may fail and
-    return graceful defaults so the UI stays responsive.
-    """
-    # 1) embedding (may fail and return empty list)
-    embedding = CohereEmbeddingProvider()
+async def get_context(query: str) -> str:
+    """Internal helper: Embeds query and performs hybrid search."""
     try:
-        query_embedding = embedding.embed(query)
-    except Exception:
-        query_embedding = []
-
-    # 2) hybrid search (returns empty list on failure)
-    relevant_docs = hybrid_search(query, query_embedding)
-
-    # 3) build context
-    try:
+        # 1. Generate Embedding
+        embedder = CohereEmbeddingProvider()
+        query_vector = embedder.embed(query)
+        
+        # 2. Hybrid Search
+        relevant_docs = await hybrid_search(query, query_vector)
+        
+        # 3. Format Context
         context = "\n\n".join(str(item.properties) for item in relevant_docs)
+        return context
     except Exception:
-        context = ""
+        logger.exception("Context retrieval failed")
+        return ""
 
-    # 4) call models (each returns an unavailable message on failure)
-    deepseek_response = call_deepseek(query, context)
-    kimi_response = call_kimi(query, context)
-    gemini_response = call_gemini(query, context)
+async def rag_stream(
+    query: str, 
+    hist_a: List[Dict], 
+    hist_b: List[Dict], 
+    hist_c: List[Dict]
+) -> AsyncGenerator[Tuple[List[Dict], List[Dict], List[Dict]], None]:
+    """
+    Orchestrates parallel streaming from three models.
+    Yields updated history lists for [Model A, Model B, Model C].
+    """
+    
+    # Step 1: Get Context (Shared for all models)
+    context = await get_context(query)
+    
+    # Step 2: Prepare History 
+    # Add the user query to all histories immediately
+    hist_a.append({"role": "user", "content": query})
+    hist_b.append({"role": "user", "content": query})
+    hist_c.append({"role": "user", "content": query})
+    
+    # Add placeholder assistant messages that we will update during streaming
+    hist_a.append({"role": "assistant", "content": ""})
+    hist_b.append({"role": "assistant", "content": ""})
+    hist_c.append({"role": "assistant", "content": ""})
 
-    # Return input plus three responses so Gradio outputs match: [input, out_a, out_b, out_c]
-    return deepseek_response, kimi_response, gemini_response
+    # Step 3: Initialize Async Generators for each model
+    # Note: We pass the history EXCLUDING the latest placeholder we just added
+    gen_a = call_deepseek(query, context, hist_a[:-2])
+    gen_b = call_kimi(query, context, hist_b[:-2])
+    gen_c = call_gemini(query, context, hist_c[:-2])
+
+    # Step 4: Parallel Consumption Loop
+    # We use a set of tasks to monitor which generator has a new token
+    tasks = {
+        asyncio.create_task(gen_a.__anext__()): 'a',
+        asyncio.create_task(gen_b.__anext__()): 'b',
+        asyncio.create_task(gen_c.__anext__()): 'c'
+    }
+
+    while tasks:
+        done, pending = await asyncio.wait(tasks.keys(), return_when=asyncio.FIRST_COMPLETED)
+        
+        for task in done:
+            label = tasks.pop(task)
+            try:
+                content = task.result()
+                
+                # Update the content in the respective history
+                if label == 'a':
+                    hist_a[-1]["content"] = content
+                    # Re-schedule the next iteration for this generator
+                    tasks[asyncio.create_task(gen_a.__anext__())] = 'a'
+                elif label == 'b':
+                    hist_b[-1]["content"] = content
+                    tasks[asyncio.create_task(gen_b.__anext__())] = 'b'
+                elif label == 'c':
+                    hist_c[-1]["content"] = content
+                    tasks[asyncio.create_task(gen_c.__anext__())] = 'c'
+                    
+                # Yield the current state of all histories to update UI bubbles
+                yield hist_a, hist_b, hist_c
+                
+            except StopAsyncIteration:
+                # Generator finished normally
+                pass
+            except Exception:
+                logger.exception(f"Error in generator {label}")
+                # Set error message in history if it failed
+                msg = "Model error occurred."
+                if label == 'a': hist_a[-1]["content"] = msg
+                elif label == 'b': hist_b[-1]["content"] = msg
+                elif label == 'c': hist_c[-1]["content"] = msg
+                yield hist_a, hist_b, hist_c

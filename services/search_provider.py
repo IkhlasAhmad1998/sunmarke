@@ -1,41 +1,57 @@
-"""Search provider using Weaviate hybrid search.
+"""Search provider using Weaviate v4 Async hybrid search.
 
-This module keeps a small surface area: connect at import time and
-expose `hybrid_search` which returns a list-like result. On errors it
-returns an empty list so the pipeline can continue.
+This module provides a persistent async connection to Weaviate. 
+The `hybrid_search` function is non-blocking and production-hardened 
+with graceful error handling.
 """
 
+import logging
 from typing import List, Optional
 import weaviate
 from weaviate.classes.query import HybridFusion
 from config import settings
-import logging
-
 
 logger = logging.getLogger(__name__)
 
+# Persistent client placeholder
+_async_client: Optional[weaviate.WeaviateAsyncClient] = None
 
-try:
-    weav_client = weaviate.WeaviateAsyncClient(
-        cluster_url=settings.SUNMARKE_WEAVIATE_URL,
-        auth_credentials=settings.SUNMARKE_WEAVIATE_API_KEY,
-    )
-    collection = weav_client.collections.get(settings.SUNMARKE_COLLECTION)
-except Exception as exc:  # keep connection errors graceful
-    logger.exception("Weaviate connection error")
-    weav_client = None
-    collection = None
+async def get_client() -> weaviate.WeaviateAsyncClient:
+    """Singleton-style helper to get or initialize the async Weaviate client."""
+    global _async_client
+    # Removed 'await' from is_connected()
+    if _async_client is None or not _async_client.is_connected():
+        try:
+            _async_client = weaviate.use_async_with_weaviate_cloud(
+                cluster_url=settings.SUNMARKE_WEAVIATE_URL,
+                auth_credentials=weaviate.auth.AuthApiKey(settings.SUNMARKE_WEAVIATE_API_KEY),
+            )
+            await _async_client.connect()
+            logger.info("Successfully connected to Weaviate Async Client.")
+        except Exception:
+            logger.exception("Failed to connect to Weaviate")
+            _async_client = None
+    return _async_client
 
-
-def hybrid_search(
-    query_text: str, query_vector=None, alpha: float = 0.5, limit: int = 2
+async def hybrid_search(
+    query_text: str, 
+    query_vector: List[float] = None, 
+    alpha: float = 0.5, 
+    limit: int = 3
 ) -> List:
-    """Perform a hybrid search; return empty list on failure."""
-    if collection is None:
+    """Perform an asynchronous hybrid search.
+    
+    Returns a list of objects or an empty list on failure.
+    """
+    client = await get_client()
+    if client is None:
         return []
 
     try:
-        response = collection.query.hybrid(
+        collection = client.collections.get(settings.SUNMARKE_COLLECTION)
+        
+        # v4 Async query syntax
+        response = await collection.query.hybrid(
             query=query_text,
             vector=query_vector,
             alpha=alpha,
@@ -43,6 +59,13 @@ def hybrid_search(
             limit=limit,
         )
         return response.objects
-    except Exception as exc:  # minimal, graceful handling
-        logger.exception("Hybrid search error")
+    except Exception:
+        logger.exception("Hybrid search execution error")
         return []
+
+async def close_search_client():
+    """Cleanup function to be called when the app shuts down."""
+    global _async_client
+    if _async_client:
+        await _async_client.close()
+        _async_client = None

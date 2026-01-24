@@ -1,109 +1,82 @@
-"""Simple Gradio UI for RAG demo.
-
-This module creates a three-column view to show responses from
-multiple model providers and a bottom input bar. CSS is read
-from `assets/styles.css` so styling is separated from code.
-"""
-
-from __future__ import annotations
-
-from typing import Tuple
-import pathlib
-import logging
 import gradio as gr
+import asyncio
+from rag_pipeline import rag_stream
 
-from rag_pipeline import rag
+# --- UI Helpers ---
+def lock_input():
+    """Disables the input bar while processing."""
+    return gr.update(interactive=False, placeholder="Thinking..."), gr.update(interactive=False)
 
+def unlock_input():
+    """Re-enables the input bar after response."""
+    return gr.update(interactive=True, placeholder="Ask a follow-up question..."), gr.update(interactive=True)
 
-def process_query(query_text: str) -> Tuple[str, str, str, str]:
-    """Process a text query and return the input plus three model responses.
+async def chat_wrapper(query, hist_a, hist_b, hist_c):
+    if not query or query.strip() == "":
+        yield hist_a, hist_b, hist_c
+        return
 
-    Returns empty strings if the input is blank.
-    """
-    if not query_text or query_text.strip() == "":
-        return "", "", ""
+    # rag_stream returns an AsyncGenerator yielding (hist_a, hist_b, hist_c)
+    async for updated_a, updated_b, updated_c in rag_stream(query, hist_a, hist_b, hist_c):
+        yield updated_a, updated_b, updated_c
 
-    return rag(query_text)
-
-
-def transcribe_and_query(audio_path) -> Tuple[str, str, str, str]:
-    """Placeholder STT integration.
-
-    In production replace with an actual STT call that returns text.
-    """
-    # For now simulate an STT transcription
-    user_text = "What's the weather like today in London?"
-    return rag(user_text)
-
-
-def _read_css() -> str:
-    """Read CSS from the assets folder. Return empty string if missing."""
-    css_path = pathlib.Path(__file__).parent / "assets" / "styles.css"
-    try:
-        return css_path.read_text(encoding="utf-8")
-    except Exception:
-        return ""
-
-
-css = _read_css()
-
-# Configure basic logging for the application. Logs go to stderr by default.
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-)
-
-
+# --- Layout and UI ---
 with gr.Blocks() as demo:
+    # Session State for History
+    history_a = gr.State([])
+    history_b = gr.State([])
+    history_c = gr.State([])
+
+    gr.Markdown("## 🤖 Multi-Model RAG Comparison")
+
     with gr.Row():
         with gr.Column(elem_classes="model-column"):
-            gr.Markdown("### MODEL A")
-            out_a = gr.Textbox(label=None, placeholder="Response A...",
-                               interactive=False, container=False)
-            _ = gr.Button("🔊 Play Audio", size="sm")
-
+            gr.Markdown("### DEEPSEEK (Model A)")
+            # Removed 'type="messages"' as it's now default in v6.0
+            chat_a = gr.Chatbot(label=None, height=500)
+            
         with gr.Column(elem_classes="model-column"):
-            gr.Markdown("### MODEL B")
-            out_b = gr.Textbox(label=None, placeholder="Response B...",
-                               interactive=False, container=False)
-            _ = gr.Button("🔊 Play Audio", size="sm")
-
+            gr.Markdown("### KIMI (Model B)")
+            chat_b = gr.Chatbot(label=None, height=500)
+            
         with gr.Column(elem_classes="model-column"):
-            gr.Markdown("### MODEL C")
-            out_c = gr.Textbox(label=None, placeholder="Response C...",
-                               interactive=False, container=False)
-            _ = gr.Button("🔊 Play Audio", size="sm")
+            gr.Markdown("### GEMINI (Model C)")
+            chat_c = gr.Chatbot(label=None, height=500)
 
-    gr.HTML("<div style='height: 150px;'></div>")
-
+    # Bottom Fixed Input Bar
     with gr.Row(elem_id="bottom-bar"):
-        with gr.Column(scale=4):
+        with gr.Column(scale=5):
             user_input = gr.Textbox(
-                show_label=False,
-                placeholder="What's the weather like today in London?",
-                container=False,
-                interactive=True,
+                show_label=False, 
+                placeholder="Ask something...", 
+                container=False
             )
         with gr.Column(scale=1):
-            submit_btn = gr.Button("Send", variant="primary", size="lg")
-        with gr.Column(scale=2):
-            voice_btn = gr.Audio(
-                sources=["microphone"],
-                type="filepath",
-                label="Record",
-                show_label=False,
-            )
+            submit_btn = gr.Button("Send", variant="primary")
 
-    # Bind both the button click and pressing Enter in the textbox
-    user_input.submit(process_query, inputs=[user_input],
-                      outputs=[out_a, out_b, out_c])
-    submit_btn.click(process_query, inputs=[user_input],
-                     outputs=[user_input, out_a, out_b, out_c])
+    # --- Event Logic ---
+    submit_event = (
+        submit_btn.click(lock_input, outputs=[user_input, submit_btn])
+        .then(chat_wrapper, 
+              inputs=[user_input, chat_a, chat_b, chat_c], 
+              outputs=[chat_a, chat_b, chat_c])
+        .then(lambda: "", outputs=[user_input])
+        .then(unlock_input, outputs=[user_input, submit_btn])
+    )
+    
+    user_input.submit(lock_input, outputs=[user_input, submit_btn]).then(
+        chat_wrapper, 
+        inputs=[user_input, chat_a, chat_b, chat_c], 
+        outputs=[chat_a, chat_b, chat_c]
+    ).then(lambda: "", outputs=[user_input]).then(unlock_input, outputs=[user_input, submit_btn])
 
-    voice_btn.stop_recording(transcribe_and_query,
-                             inputs=[voice_btn],
-                             outputs=[out_a, out_b, out_c])
-
+# --- Custom Styling (Moved to launch() per Gradio 6.0) ---
+CSS = """
+    #bottom-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 20px; z-index: 1000; border-top: 1px solid #ddd; }
+    .model-column { border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background: #f9f9f9; }
+    .gradio-container { padding-bottom: 180px !important; } 
+"""
 
 if __name__ == "__main__":
-    demo.launch(css=css)
+    # CSS is now passed here
+    demo.launch(css=CSS)
