@@ -87,6 +87,7 @@ async def call_kimi(query: str, context: str, history: List[Dict[str, str]]) -> 
         logger.exception("Kimi streaming error")
         yield _UNAVAILABLE_MSG
 
+
 async def call_gemini(query: str, context: str, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
     """Stream response from Google Gemini."""
     try:

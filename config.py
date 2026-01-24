@@ -16,5 +16,7 @@ class Settings:
     GROQ_API_KEY: str | None = os.getenv('GROQ_API_KEY')
     GROQ_BASE_URL: str | None = os.getenv('GROQ_BASE_URL')
 
+    DEEPGRAM_API_KEY: str | None = os.getenv("DEEPGRAM_API_KEY")
+
 
 settings = Settings()
