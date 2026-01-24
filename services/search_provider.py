@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 try:
-    weav_client = weaviate.connect_to_weaviate_cloud(
+    weav_client = weaviate.WeaviateAsyncClient(
         cluster_url=settings.SUNMARKE_WEAVIATE_URL,
         auth_credentials=settings.SUNMARKE_WEAVIATE_API_KEY,
     )

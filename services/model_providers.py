@@ -8,7 +8,7 @@ returned so the UI can display it.
 from config import settings
 from typing import Optional
 from openai import OpenAI
-from groq import Groq
+from groq import AsyncClient
 from google import genai
 import logging
 
@@ -22,7 +22,7 @@ open_router = OpenAI(
 )
 
 
-groq_client = Groq(
+groq_client = AsyncClient(
     api_key=settings.GROQ_API_KEY,
     base_url=settings.GROQ_BASE_URL,
 )
