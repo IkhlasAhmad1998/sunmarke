@@ -3,9 +3,7 @@ import asyncio
 from rag_pipeline import rag_stream
 from services.voice_service import transcribe_audio
 import sys
-
-if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+from pathlib import Path
 
 # --- UI Helpers ---
 def lock_input():
@@ -105,10 +103,10 @@ with gr.Blocks() as demo:
 
     # --- Event Logic ---
     
-    # 1. Voice-to-Text: Triggered when user stops recording
+    # Voice-to-Text: Triggered when user stops recording
     mic_btn.stop_recording(process_voice_input, inputs=[mic_btn], outputs=[user_input])
 
-    # 2. Submission Logic
+    # Submission Logic
     submit_click = submit_btn.click(lock_input, outputs=[user_input, submit_btn])\
         .then(chat_wrapper, inputs=[user_input, chat_a, chat_b, chat_c], outputs=[chat_a, chat_b, chat_c])\
         .then(lambda: "", outputs=[user_input])\
@@ -119,11 +117,7 @@ with gr.Blocks() as demo:
         .then(lambda: "", outputs=[user_input])\
         .then(unlock_input, outputs=[user_input, submit_btn])
 
-CSS = """
-    #bottom-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 20px; z-index: 1000; border-top: 1px solid #ddd; }
-    .model-column { border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; background: #f9f9f9; margin-bottom: 20px;}
-    .gradio-container { padding-bottom: 200px !important; } 
-"""
+CSS = Path("assets/styles.css").read_text()
 
 if __name__ == "__main__":
     demo.launch(css=CSS)

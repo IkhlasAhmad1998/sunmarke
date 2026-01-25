@@ -10,6 +10,7 @@ from openai import AsyncOpenAI
 from groq import AsyncGroq
 from google import genai
 from config import settings
+from services.prompts import system_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +32,7 @@ google_client = genai.Client(api_key=settings.GEMINI_API_KEY).aio
 _UNAVAILABLE_MSG = "Model currently unavailable, try again later."
 
 def _build_messages(query: str, context: str, history: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    """Helper to construct the message list with history and context."""
-    system_prompt = (
-        "You are a helpful assistant. Answer the user's query using the provided context. "
-        "If the context doesn't contain the answer, use your general knowledge but mention that "
-        "the context was insufficient.\n\n"
-        f"CONTEXT:\n{context}"
-    )
+    """Helper to construct the message list with history and context."""   
     
     messages = [{"role": "system", "content": system_prompt}]
     
@@ -48,7 +43,7 @@ def _build_messages(query: str, context: str, history: List[Dict[str, str]]) -> 
             "content": msg["content"]
         })
         
-    messages.append({"role": "user", "content": query})
+    messages.append({"role": "user", "content": f"CONTEXT: {context}\n\nQuery: {query}"})
     return messages
 
 async def call_deepseek(query: str, context: str, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
