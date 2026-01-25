@@ -1,23 +1,22 @@
 import gradio as gr
-import asyncio
 from rag_pipeline import rag_stream
 from services.voice_service import transcribe_audio
-import sys
 from pathlib import Path
+
 
 # --- UI Helpers ---
 def lock_input():
     return gr.update(interactive=False, placeholder="Processing voice..."), gr.update(interactive=False)
 
+
 def unlock_input():
     return gr.update(interactive=True, placeholder="Ask a follow-up question..."), gr.update(interactive=True)
-
 
 
 speak_js = """
 (history) => {
     if (!history || history.length === 0) return;
-    
+
     // 1. Get the last message from history
     const lastMsg = history[history.length - 1];
     if (lastMsg.role !== 'assistant') return;
@@ -43,6 +42,7 @@ speak_js = """
 }
 """
 
+
 async def process_voice_input(audio_path):
     """Transcribes audio and returns it to the textbox."""
     if audio_path is None:
@@ -50,12 +50,14 @@ async def process_voice_input(audio_path):
     text = await transcribe_audio(audio_path)
     return text
 
+
 async def chat_wrapper(query, hist_a, hist_b, hist_c):
     if not query or query.strip() == "":
         yield hist_a, hist_b, hist_c
         return
     async for updated_a, updated_b, updated_c in rag_stream(query, hist_a, hist_b, hist_c):
         yield updated_a, updated_b, updated_c
+
 
 # --- Layout ---
 with gr.Blocks() as demo:
@@ -74,7 +76,7 @@ with gr.Blocks() as demo:
             audio_a = gr.Audio(visible=False, autoplay=True)
             speak_a = gr.Button("🔊 Speak Response")
             speak_a.click(fn=None, inputs=[chat_a], outputs=None, js=speak_js)
-            
+
         # Column B: Kimi
         with gr.Column(elem_classes="model-column"):
             gr.Markdown("### KIMI")
@@ -82,7 +84,7 @@ with gr.Blocks() as demo:
             audio_b = gr.Audio(visible=False, autoplay=True)
             speak_b = gr.Button("🔊 Speak Response")
             speak_b.click(fn=None, inputs=[chat_b], outputs=None, js=speak_js)
-            
+
         # Column C: Gemini
         with gr.Column(elem_classes="model-column"):
             gr.Markdown("### GEMINI")
@@ -102,7 +104,6 @@ with gr.Blocks() as demo:
             submit_btn = gr.Button("Send", variant="primary")
 
     # --- Event Logic ---
-    
     # Voice-to-Text: Triggered when user stops recording
     mic_btn.stop_recording(process_voice_input, inputs=[mic_btn], outputs=[user_input])
 
@@ -111,7 +112,7 @@ with gr.Blocks() as demo:
         .then(chat_wrapper, inputs=[user_input, chat_a, chat_b, chat_c], outputs=[chat_a, chat_b, chat_c])\
         .then(lambda: "", outputs=[user_input])\
         .then(unlock_input, outputs=[user_input, submit_btn])
-    
+
     user_input.submit(lock_input, outputs=[user_input, submit_btn])\
         .then(chat_wrapper, inputs=[user_input, chat_a, chat_b, chat_c], outputs=[chat_a, chat_b, chat_c])\
         .then(lambda: "", outputs=[user_input])\

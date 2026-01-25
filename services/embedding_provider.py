@@ -1,10 +1,3 @@
-"""Embedding provider wrapper for Cohere.
-
-Provides a small, robust adapter that returns a single vector for a
-given text. On failure it returns an empty list so callers can handle
-the absence of embeddings.
-"""
-
 from typing import List
 from config import settings
 import cohere
@@ -34,6 +27,6 @@ class CohereEmbeddingProvider:
                 embedding_types=["float"],
             )
             return resp.embeddings.float_[0]
-        except Exception as exc:  # minimal, graceful handling
-            logger.exception("Cohere embedding error")
+        except Exception as e:  # minimal, graceful handling
+            logger.exception(f"Cohere embedding error: {e}")
             return []

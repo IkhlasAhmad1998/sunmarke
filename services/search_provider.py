@@ -1,10 +1,3 @@
-"""Search provider using Weaviate v4 Async hybrid search.
-
-This module provides a persistent async connection to Weaviate. 
-The `hybrid_search` function is non-blocking and production-hardened 
-with graceful error handling.
-"""
-
 import logging
 from typing import List, Optional
 import weaviate
@@ -15,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 # Persistent client placeholder
 _async_client: Optional[weaviate.WeaviateAsyncClient] = None
+
 
 async def get_client() -> weaviate.WeaviateAsyncClient:
     """Singleton-style helper to get or initialize the async Weaviate client."""
@@ -33,14 +27,15 @@ async def get_client() -> weaviate.WeaviateAsyncClient:
             _async_client = None
     return _async_client
 
+
 async def hybrid_search(
-    query_text: str, 
-    query_vector: List[float] = None, 
-    alpha: float = 0.5, 
+    query_text: str,
+    query_vector: List[float] = None,
+    alpha: float = 0.5,
     limit: int = 3
 ) -> List:
     """Perform an asynchronous hybrid search.
-    
+
     Returns a list of objects or an empty list on failure.
     """
     client = await get_client()
@@ -49,7 +44,7 @@ async def hybrid_search(
 
     try:
         collection = client.collections.get(settings.SUNMARKE_COLLECTION)
-        
+
         # v4 Async query syntax
         response = await collection.query.hybrid(
             query=query_text,
@@ -62,6 +57,7 @@ async def hybrid_search(
     except Exception:
         logger.exception("Hybrid search execution error")
         return []
+
 
 async def close_search_client():
     """Cleanup function to be called when the app shuts down."""

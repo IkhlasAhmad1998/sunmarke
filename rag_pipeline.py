@@ -1,18 +1,12 @@
-"""Asynchronous RAG Pipeline.
-
-Orchestrates the retrieval and multi-model generation flow. 
-Uses asyncio to call LLMs in parallel and stream results back to the UI.
-"""
-
 import asyncio
-import logging
 from typing import AsyncGenerator, List, Dict, Tuple
-
 from services.embedding_provider import CohereEmbeddingProvider
 from services.search_provider import hybrid_search
 from services.model_providers import call_deepseek, call_kimi, call_gemini
+import logging
 
 logger = logging.getLogger(__name__)
+
 
 async def get_context(query: str) -> str:
     """Internal helper: Embeds query and performs hybrid search."""
@@ -20,10 +14,10 @@ async def get_context(query: str) -> str:
         # 1. Generate Embedding
         embedder = CohereEmbeddingProvider()
         query_vector = embedder.embed(query)
-        
+
         # 2. Hybrid Search
         relevant_docs = await hybrid_search(query, query_vector)
-        
+
         # 3. Format Context
         context = "\n\n".join(str(item.properties) for item in relevant_docs)
         return context
@@ -31,26 +25,27 @@ async def get_context(query: str) -> str:
         logger.exception("Context retrieval failed")
         return ""
 
+
 async def rag_stream(
-    query: str, 
-    hist_a: List[Dict], 
-    hist_b: List[Dict], 
+    query: str,
+    hist_a: List[Dict],
+    hist_b: List[Dict],
     hist_c: List[Dict]
 ) -> AsyncGenerator[Tuple[List[Dict], List[Dict], List[Dict]], None]:
     """
     Orchestrates parallel streaming from three models.
     Yields updated history lists for [Model A, Model B, Model C].
     """
-    
+
     # Step 1: Get Context (Shared for all models)
     context = await get_context(query)
-    
-    # Step 2: Prepare History 
+
+    # Step 2: Prepare History
     # Add the user query to all histories immediately
     hist_a.append({"role": "user", "content": query})
     hist_b.append({"role": "user", "content": query})
     hist_c.append({"role": "user", "content": query})
-    
+
     # Add placeholder assistant messages that we will update during streaming
     hist_a.append({"role": "assistant", "content": ""})
     hist_b.append({"role": "assistant", "content": ""})
@@ -72,12 +67,12 @@ async def rag_stream(
 
     while tasks:
         done, pending = await asyncio.wait(tasks.keys(), return_when=asyncio.FIRST_COMPLETED)
-        
+
         for task in done:
             label = tasks.pop(task)
             try:
                 content = task.result()
-                
+
                 # Update the content in the respective history
                 if label == 'a':
                     hist_a[-1]["content"] = content
@@ -89,10 +84,10 @@ async def rag_stream(
                 elif label == 'c':
                     hist_c[-1]["content"] = content
                     tasks[asyncio.create_task(gen_c.__anext__())] = 'c'
-                    
+
                 # Yield the current state of all histories to update UI bubbles
                 yield hist_a, hist_b, hist_c
-                
+
             except StopAsyncIteration:
                 # Generator finished normally
                 pass
@@ -100,7 +95,10 @@ async def rag_stream(
                 logger.exception(f"Error in generator {label}")
                 # Set error message in history if it failed
                 msg = "Model error occurred."
-                if label == 'a': hist_a[-1]["content"] = msg
-                elif label == 'b': hist_b[-1]["content"] = msg
-                elif label == 'c': hist_c[-1]["content"] = msg
+                if label == 'a':
+                    hist_a[-1]["content"] = msg
+                elif label == 'b':
+                    hist_b[-1]["content"] = msg
+                elif label == 'c':
+                    hist_c[-1]["content"] = msg
                 yield hist_a, hist_b, hist_c

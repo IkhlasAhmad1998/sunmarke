@@ -1,9 +1,3 @@
-"""Model provider adapters for Async Streaming.
-
-Wraps calls to external LLM providers using asynchronous streaming.
-Each adapter is an async generator that yields partial strings as they arrive.
-"""
-
 import logging
 from typing import AsyncGenerator, List, Dict
 from openai import AsyncOpenAI
@@ -31,20 +25,22 @@ google_client = genai.Client(api_key=settings.GEMINI_API_KEY).aio
 
 _UNAVAILABLE_MSG = "Model currently unavailable, try again later."
 
+
 def _build_messages(query: str, context: str, history: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    """Helper to construct the message list with history and context."""   
-    
+    """Helper to construct the message list with history and context."""
+
     messages = [{"role": "system", "content": system_prompt}]
-    
+
     # SANITIZE HISTORY: Only keep 'role' and 'content' for the API calls
     for msg in history:
         messages.append({
             "role": msg["role"],
             "content": msg["content"]
         })
-        
+
     messages.append({"role": "user", "content": f"CONTEXT: {context}\n\nQuery: {query}"})
     return messages
+
 
 async def call_deepseek(query: str, context: str, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
     """Stream response from DeepSeek via OpenRouter."""
@@ -63,6 +59,7 @@ async def call_deepseek(query: str, context: str, history: List[Dict[str, str]])
     except Exception:
         logger.exception("Deepseek streaming error")
         yield _UNAVAILABLE_MSG
+
 
 async def call_kimi(query: str, context: str, history: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
     """Stream response from Kimi via Groq."""
@@ -92,7 +89,7 @@ async def call_gemini(query: str, context: str, history: List[Dict[str, str]]) -
             f"History: {history}\n\n"
             f"User Query: {query}"
         )
-        
+
         stream = await google_client.models.generate_content_stream(
             model="gemini-2.5-flash",
             contents=prompt,
