@@ -1,3 +1,10 @@
+"""Model provider wrappers.
+
+Contains thin async adapters over the external model provider SDKs.
+Each function streams partial outputs and yields progressively
+concatenated text for the UI to display while the model generates.
+"""
+
 import logging
 from typing import AsyncGenerator, List, Dict
 from openai import AsyncOpenAI

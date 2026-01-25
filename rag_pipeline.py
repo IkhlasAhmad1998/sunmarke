@@ -1,3 +1,11 @@
+"""Retrieval-Augmented Generation (RAG) orchestration.
+
+This module is responsible for constructing the retrieval context
+for a user query and streaming model responses in parallel for the
+three configured providers. It yields incremental updates used by
+the UI to display streaming assistant responses.
+"""
+
 import asyncio
 from typing import AsyncGenerator, List, Dict, Tuple
 from services.embedding_provider import CohereEmbeddingProvider

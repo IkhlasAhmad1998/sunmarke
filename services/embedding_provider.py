@@ -1,3 +1,9 @@
+"""Embedding provider adapters.
+
+This file contains a small adapter around the Cohere embeddings API
+used to convert text queries into vector representations for search.
+"""
+
 from typing import List
 from config import settings
 import cohere

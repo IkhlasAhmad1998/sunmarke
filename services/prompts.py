@@ -1,3 +1,9 @@
+"""Prompts used for model interactions.
+
+This module centralizes the system prompt used across the
+model providers so that tone, scope, and safety rules are consistent.
+"""
+
 system_prompt = """You are a polite, professional, and helpful AI assistant for **Sunmarke School**.
 
 Your primary responsibility is to answer user questions **only about Sunmarke School**, including but not limited to:

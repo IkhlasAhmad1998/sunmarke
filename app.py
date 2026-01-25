@@ -1,3 +1,10 @@
+"""Gradio UI for the Sunmarke RAG assistant.
+
+This module builds the web interface and wires it to the RAG pipeline
+and voice transcription service. It contains only UI glue and event
+handlers; core logic lives in `rag_pipeline.py` and `services/`.
+"""
+
 import gradio as gr
 from rag_pipeline import rag_stream
 from services.voice_service import transcribe_audio
@@ -121,4 +128,8 @@ with gr.Blocks() as demo:
 CSS = Path("assets/styles.css").read_text()
 
 if __name__ == "__main__":
-    demo.launch(css=CSS)
+    demo.launch(server_name="0.0.0.0",
+    server_port=7860,
+    show_api=False,
+    css=CSS
+    )

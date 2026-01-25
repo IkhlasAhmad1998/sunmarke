@@ -1,10 +1,27 @@
 # Sunmarke RAG Gradio App
+# Sunmarke RAG Gradio App
 
-This repository contains a small RAG (Retrieval-Augmented Generation) demo wired to a Gradio UI. The code has been refactored into modular services and a pipeline to make it easy to add/remove providers.
+Small Retrieval-Augmented Generation (RAG) demo with a Gradio UI.
+The project is split into a UI layer (`app.py`), a lightweight
+RAG orchestration (`rag_pipeline.py`), and provider adapters under
+`services/` (embeddings, search, models, and voice).
 
-Setup
+**Architecture**
+- `app.py`: Gradio-based web UI and event wiring. Handles user input,
+	displays three parallel model responses, and integrates microphone
+	recording.
+- `rag_pipeline.py`: Orchestrates embedding -> hybrid search -> model
+	generation. Streams partial responses from multiple providers.
+- `services/embedding_provider.py`: Embedding adapter (Cohere).
+- `services/search_provider.py`: Async Weaviate hybrid search wrapper.
+- `services/model_providers.py`: Async streaming adapters for each
+	model provider (OpenRouter/Deepseek, Groq/Kimi, Google Gemini).
+- `services/voice_service.py`: Audio transcription using Deepgram.
+- `services/prompts.py`: Centralized system prompt and policy for
+	responses.
 
-1. Create a virtual environment and activate it.
+**Installation**
+1. Create and activate a virtual environment.
 
 Windows (cmd):
 ```bat
@@ -13,23 +30,45 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-2. Populate `.env` with your provider credentials (a sample `.env` is included).
+2. Provide credentials via a `.env` file in the project root. The
+	 repository expects the following environment variables (based on
+	 `config.py`):
 
-Run
+- `SUNMARKE_WEAVIATE_API_KEY`
+- `SUNMARKE_WEAVIATE_URL`
+- `SUNMARKE_COLLECTION`
+- `COHERE_API_KEY`
+- `GEMINI_API_KEY`
+- `OPEN_ROUTER_URL`
+- `OPEN_ROUTER_API_KEY`
+- `GROQ_API_KEY`
+- `GROQ_BASE_URL`
+- `DEEPGRAM_API_KEY`
 
+Keep secrets out of source control and use a secure vault for
+production deployment.
+
+**Run (development)**
 ```bat
 python app.py
 ```
 
-Files of interest
+The Gradio UI will launch and expose a local URL for interaction.
 
-- `app.py`: Gradio UI wired to the `RAGPipeline`.
-- `config.py`: Central settings loader.
-- `services/`: Provider wrappers for embedding, search, and models.
-- `rag_pipeline.py`: Orchestration logic for embedding -> search -> generation.
+**Extending & Development notes**
+- Add new embedding or model providers under `services/` and expose a
+	small async helper that streams tokens (see `model_providers.py`).
+- Keep business logic in `rag_pipeline.py` and adapters in
+	`services/` to maintain separation of concerns.
+- The repository uses async clients to avoid blocking the UI; unit
+	tests and additional error handling are recommended before
+	production deployment.
 
-Extending
+**Files of interest**
+- [app.py](app.py): UI and event wiring.
+- [config.py](config.py): Environment-based settings.
+- [rag_pipeline.py](rag_pipeline.py): RAG orchestration logic.
+- [services/](services/): Provider adapters and helpers.
 
-To add a new model provider implement `ModelProvider` in `services/model_providers.py` and instantiate it inside `rag_pipeline.create_default_pipeline` or pass the client when creating the pipeline.
-# sunmarke
+---
 AI Engineer Technical Assessment Project

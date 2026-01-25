@@ -1,3 +1,10 @@
+"""Search provider helpers using Weaviate.
+
+Provides an async singleton client and a hybrid search wrapper used
+by the RAG pipeline. Errors are handled gracefully and an empty
+result list is returned on failure so callers can continue.
+"""
+
 import logging
 from typing import List, Optional
 import weaviate

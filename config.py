@@ -1,3 +1,11 @@
+"""Configuration loader.
+
+Loads environment variables from `.env` and exposes a small
+`Settings` holder used across the project. Keep secrets out of
+source control and store them in the environment or a protected
+.env file during local development.
+"""
+
 import os
 from dotenv import load_dotenv, find_dotenv
 

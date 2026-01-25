@@ -1,3 +1,11 @@
+"""Voice transcription helpers using Deepgram.
+
+This module exposes a single async helper `transcribe_audio` that
+converts a local audio file path to text. It uses the Deepgram async
+client and returns an empty string on failure to keep the UI flow
+simple and non-blocking.
+"""
+
 import os
 from deepgram import AsyncDeepgramClient
 from config import settings
