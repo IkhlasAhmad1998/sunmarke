@@ -9,6 +9,7 @@ import gradio as gr
 from rag_pipeline import rag_stream
 from services.voice_service import transcribe_audio
 from pathlib import Path
+import os
 
 
 # --- UI Helpers ---
@@ -129,6 +130,6 @@ CSS = Path("assets/styles.css").read_text()
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0",
-    server_port=7860,
+    server_port=os.getenv("PORT", default=5000),
     css=CSS
     )
