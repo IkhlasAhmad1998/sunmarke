@@ -19,6 +19,7 @@ RAG orchestration (`rag_pipeline.py`), and provider adapters under
 - `services/voice_service.py`: Audio transcription using Deepgram.
 - `services/prompts.py`: Centralized system prompt and policy for
 	responses.
+- `data`: Contains notebooks for webscraping, chunking, embedding and ingestion.
 
 **Installation**
 1. Create and activate a virtual environment.
@@ -69,6 +70,7 @@ The Gradio UI will launch and expose a local URL for interaction.
 - [config.py](config.py): Environment-based settings.
 - [rag_pipeline.py](rag_pipeline.py): RAG orchestration logic.
 - [services/](services/): Provider adapters and helpers.
+- [data/](data/): Provider webscraping, chunking, embedding and ingestion notebooks.
 
 ---
 AI Engineer Technical Assessment Project

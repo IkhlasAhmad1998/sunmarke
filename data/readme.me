@@ -1,0 +1,35 @@
+Data folder contents and purpose
+
+- `webscrapping.ipynb`: Notebook that crawls the Sunmarke website, extracts
+  main page content using BeautifulSoup and Trafilatura, and saves results
+  to `data.json`.
+- `inspecting data.ipynb`: Light analysis of `data.json` token lengths using
+  Cohere tokenizer to inform chunking strategy.
+- `chunking.ipynb`: Splits long documents into token-sized chunks, produces
+  `chunks.json`.
+- `embeddings.ipynb`: Generates embeddings for `chunks.json` using Cohere
+  and writes `chunks_embeddings.json`.
+- `ingestion.ipynb`: Creates Weaviate collection schema and batch-inserts
+  `chunks_embeddings.json` with precomputed vectors.
+- `chunks.json`, `chunks_embeddings.json`, `data.json`: Intermediate JSON
+  artifacts used by the pipeline.
+
+Notes:
+- All notebooks include short inline comments at the top of each cell.
+- Do not store API keys in notebooks; use the project `.env` for secrets.
+
+## Requirements
+To run this project, you need the following Python libraries:
+
+- `beautifulsoup4==4.12.2`
+- `requests==2.32.5`
+- `trafilatura==1.9.1`
+- `cohere==5.20.2`
+- `weaviate-client==4.19.2`
+- `pandas==2.3.3`
+- `numpy==2.4.1`
+
+Make sure to install them using pip before running the notebooks:
+
+```bash
+pip install beautifulsoup4==4.12.2 requests==2.32.5 trafilatura==1.9.1 cohere==5.20.2 weaviate-client==4.19.2 pandas==2.3.3 numpy==2.4.1
