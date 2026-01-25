@@ -3,6 +3,7 @@ cohere==5.20.2
 openai==2.15.0
 google-genai==1.60.0
 weaviate-client==4.19.2
+groq==1.0.0
 
 python-dotenv==1.2.1
 pydantic==2.12.5
